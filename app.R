@@ -1,3 +1,4 @@
+#Setting date
 data_date <- format(Sys.time(), "%Y-%m-%d")
 
 #Packages
@@ -22,17 +23,6 @@ library(shinydashboard)
 library(wordcloud2)
 
 #Reading in Data
-#A <- str_sort(dir("/Users/jacobellen/dropbox/OBB/OBBData"))
-#log <- read.csv(paste0("/Users/jacobellen/dropbox/OBB/OBBData/", A[length(A)], "/formcompletionlog.csv"))
-#med <- read.csv(paste0("/Users/jacobellen/dropbox/OBB/OBBData/", A[length(A)], "/medication.csv"))
-#gen2 <- read.csv(paste0("/Users/jacobellen/dropbox/OBB/OBBData/", A[length(A)], "/form-baseline.csv"))
-#motif <- read.csv(paste0("/Users/jacobellen/dropbox/OBB/OBBData/", A[length(A)], "/motif_segmentvalue.csv"))
-#symp <- read.csv(paste0("/Users/jacobellen/dropbox/OBB/OBBData/", A[length(A)], "/motif_segment.csv"))
-#id <- read.csv(paste0("/Users/jacobellen/dropbox/OBB/OBBData/", A[length(A)], "/motif_motif.csv"))
-#game <- read.csv(paste0("/Users/jacobellen/dropbox/OBB/OBBData/", A[length(A)], "/gamescore.csv"))
-#pop <- read.csv("/Users/jacobellen/dropbox/OBB/PopSurvey/form-may-survey.csv")
-#newsurvey <- read.csv('/Users/jacobellen/dropbox/OBB/PopSurvey/form-obbcommunity-viewpoints-survey.csv')
-
 log <- read.csv("formcompletionlog.csv")
 med <- read.csv("medication.csv")
 gen <- read.csv("form-baseline.csv")
@@ -40,7 +30,7 @@ motif <- read.csv("motif_segmentvalue.csv")
 symp <- read.csv("motif_segment.csv")
 id <- read.csv("motif_motif.csv")
 
-#Background Code
+#Background Code to set up correct data frames
 reg <- log %>%
   filter(Stage=="Registration")
 reg <- distinct(reg, UserId, .keep_all=TRUE)
@@ -62,12 +52,16 @@ motif_motif <- motif %>%
 colnames(motif_motif) <- c("DateCreated", "Id", "Value", "Weekname")
 finalid <- merge(id, sympmotif, by="MotifId")
 finalid <- merge(finalid, motif_motif, by="Id")
+
+#Creating symptom data frames
 sympdata <- finalid %>%
   group_by(Name) %>%
   summarise(mv = mean(Value))
 sympdata2 <- finalid %>%
   group_by(Name, Weekname) %>%
   summarise(mv = mean(Value))
+
+#Creating categories by number of years with glioblastoma
 survey <- survey %>%
   mutate(yearswglio = (howmanymonthshaveyoubeenlivingwithgbm/12))
 survey$yearcat[survey$yearswglio>0] <- "Less than One Year"
@@ -79,6 +73,8 @@ survey <- survey %>%
                           levels = c("Less than One Year", "1-2 Years", "2-5 Years", "More than 5 Years")))
 x <- unname(table(survey$yearcat))
 lbl <-  c("Less than One Year", "1-2 Years", "2-5 Years", "More than 5 Years")
+
+#Creating a data frame based on when glioblastoma was diagnosed
 gen2 <- gen %>%
   filter(atwhatagewasyourglioblastomadiagnosed<100)
 gengender <- gen %>%
@@ -90,7 +86,7 @@ symplabel <- symp %>%
   select(Name, Text1, Text2, Text3, Text4, Text5)
 colnames(symplabel) <- c("Symptom_Name", "1", "2", "3", "4", "5")
 
-#Medication
+#Medication Data
 med$Name <- str_to_lower(med$Name)
 str1 <- str_subset(med$Name, "keppra")
 str2 <- str_subset(med$Name, "ativan")
@@ -108,6 +104,8 @@ medfreq <- medfreq %>%
   arrange(desc(numvec))
 medvec <- as.vector(medfreq$numvec)
 labelz <-  as.vector(medfreq$labvec)
+
+#Organizing Survey Responses for Wordcloud
 gengbm <- gen %>%
   select(whatisthemostimportantthingforyoutogetfromyourgbmtreatment, areyoucurrentlyreceivingtreatmentifsowhattreatment,haveyoureceivedothertreatmentsforglioblastomainthepast, whatothermedicationsareyoutaking)
 gengbm$whatisthemostimportantthingforyoutogetfromyourgbmtreatment <- as.character(gengbm$whatisthemostimportantthingforyoutogetfromyourgbmtreatment)
@@ -128,6 +126,7 @@ genstate$Country <- as.character(genstate$Country)
 genstate <- genstate %>%
   filter(is.na(NAME)==FALSE & NAME!="0" & NAME!="F" & NAME!="QLD" & NAME!="USA" & NAME!= "o" & NAME!="I live in europa" & NAME!= "None" & NAME!="O" &NAME!="Test"&NAME!="h"&NAME!="La" & NAME != "United states") %>% 
   filter(Country!="Poland" & Country!="Belgique" & Country != "Portugal" & Country != "United kingdom" & Country!="Isle of Man" & Country!= "Netherlands" & Country!="Israel" & Country!="Norway" & Country!="India" & Country!="Uk" & Country!="No" & Country!="Lebanon" & Country!="india" & Country!="BC" & Country!="Canada")
+#Changing inputs to be identical
 for (i in 1:length(genstate$NAME)) {
   if(genstate$NAME[i]=="Pa" | genstate$NAME[i]=="PA") {
     genstate$NAME[i] <- "Pennsylvania"
@@ -220,7 +219,7 @@ for (i in 1:length(genstate$NAME)) {
     genstate$NAME[i] <- "Maryland"
   }
 }
-
+#Getting json file to create map of US by frequency
 genstate <- genstate %>%
   group_by(NAME) %>%
   summarise(FREQ=n())
@@ -238,7 +237,7 @@ for (i in 1:52) {
 }
 states@data <- states@data %>%
   arrange(STATE)
-
+#Setting up map
 labels <- sprintf(
   "<strong>%s</strong><br/>%g OBB Patients </sup>",
   states$NAME, states$FREQ
@@ -250,7 +249,7 @@ surveyplot <- survey %>%
   summarise(freq=n()) %>%
   filter(is.na(yearcat)==FALSE) 
 
-#Total to Proportion
+#Setting up demographic plots
 gen2 <- gen2 %>%
   filter(atwhatagewasyourglioblastomadiagnosed > 0)
 sum1 <- as.numeric(sympfreq[1,2])
@@ -259,13 +258,14 @@ sympfreq <- sympfreq %>%
   mutate(prop = (n/sum1))
 sympfreq <- sympfreq %>%
   mutate(percent = prop*100)
-#sympfreq$prop <- (sympfreq$prop*100)
 surveyplot$freq <- as.numeric(surveyplot$freq)
 sum2 <- sum(surveyplot$freq)
 surveyplot <- surveyplot %>%
   mutate(prop = (freq/sum2))
 surveyplot <- surveyplot %>%
   mutate(percent = prop*100)
+
+#Gender Demographic data frame
 gengender$gender <- as.numeric(gengender$gender)
 sum3<- sum(gengender$gender)
 gengender <- gengender %>%
@@ -273,16 +273,13 @@ gengender <- gengender %>%
 gengender <- gengender %>%
   mutate(percent=prop*100)
 
+#Adjusting week names from original data frame
 for (i in 1:length(sympdata2$Weekname)) 
   if(sympdata2$Weekname[i] <= 0) 
     sympdata2$Weekname[i] <- sympdata2$Weekname[i]+53
 
 #Main App
-ui <- dashboardPage(#setBackgroundColor(
-  #  color = c("#73C2FB", "#F7FBFF"),
-  #  gradient = "linear",
-  # direction = "bottom"
-  #),
+ui <- dashboardPage(
   dashboardHeader(title="OBB's Interactive App"),
   dashboardSidebar(
     sidebarMenu(
@@ -341,11 +338,7 @@ ui <- dashboardPage(#setBackgroundColor(
               
     ),
     tabItem(tabName="PatientMap", leafletOutput(outputId="map")
-    )
-    #,
-    #tabPanel("Medications", plotOutput(outputId="demo5"), plotOutput(outputId="demo4"))
-     
-    
+    )  
     ) 
 )
 )
@@ -357,9 +350,7 @@ server <- function(input, output, session) {
     symplabel <- symplabel %>%
       filter(Symptom_Name==input$symptomname)
     symplabel[1,2:6]
-  }#, caption = paste0(name, " Table"),
-  #caption.placement = getOption("xtable.caption.placement", "top"), 
-  #caption.width = getOption("xtable.caption.width", NULL)
+  }
   )
   output$tabletext <- renderText({
     name <- as.String(input$symptomname)
